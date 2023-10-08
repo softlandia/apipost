@@ -1,10 +1,10 @@
 package main
 
 import (
-	"apipost/model/user"
 	"apipost/server"
 	"context"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 	"github.com/kelseyhightower/envconfig"
 	"log"
 	"net/http"
@@ -14,8 +14,7 @@ import (
 )
 
 func main() {
-	usr := user.NewUser(10, "Имя", "Фамилия")
-	fmt.Printf("usr id: :%s\n", usr.Id)
+	ctx := context.Background()
 
 	fmt.Printf("start api post service\n")
 	var cfg Config
@@ -26,13 +25,34 @@ func main() {
 
 	cfg.Print()
 
+	conn, err := pgx.Connect(ctx, cfg.PgConnectUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close(ctx)
+	rows, err := conn.Query(ctx, "select * from users")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		var id int
+		var name, surName string
+
+		if err := rows.Scan(&id, &name, &surName); err != nil {
+			break
+		}
+		fmt.Printf("id: %d, name: %s, sur_name: %s\n", id, name, surName)
+	}
+
 	srv := &http.Server{
 		Addr:    cfg.Listen,
 		Handler: server.New(cfg.Listen),
 	}
 
 	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := srv.ListenAndServe(); err != nil {
 			log.Fatal(err)
 		}
 	}()
@@ -41,7 +61,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	if err := srv.Shutdown(context.Background()); err != nil {
+	if err := srv.Shutdown(ctx); err != nil {
 		log.Printf("Server forced to shutdown, err: %s", err.Error())
 		os.Exit(0)
 	}
