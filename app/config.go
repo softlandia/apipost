@@ -1,0 +1,27 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+type Config struct {
+	Listen           string        `envconfig:"LISTEN" default:":8080"`
+	PostgresLogin    string        `envconfig:"POSTGRES_LOGIN" default:"user"`
+	PostgresPassword string        `envconfig:"POSTGRES_PASSWORD" default:"super-secret-password"`
+	Timeout          time.Duration `envconfig:"TIMEOUT" default:"10s"`
+}
+
+func (c Config) Print() {
+	tmp := Config{
+		Listen:           c.Listen,
+		PostgresLogin:    c.PostgresLogin,
+		PostgresPassword: "***", //c.PostgresPassword,
+		Timeout:          c.Timeout,
+	}
+
+	b, _ := json.MarshalIndent(tmp, "", "  ")
+
+	fmt.Println(string(b))
+}
