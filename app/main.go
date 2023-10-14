@@ -1,7 +1,10 @@
 package main
 
 import (
+	"apipost/repositories/orders_repo"
+	"apipost/repositories/users_repo"
 	"apipost/server"
+	"apipost/service"
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5"
@@ -30,25 +33,16 @@ func main() {
 		log.Fatal(err)
 	}
 	defer conn.Close(ctx)
-	rows, err := conn.Query(ctx, "select * from users")
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	defer rows.Close()
-	for rows.Next() {
-		var id int
-		var name, surName string
-
-		if err := rows.Scan(&id, &name, &surName); err != nil {
-			break
-		}
-		fmt.Printf("id: %d, name: %s, sur_name: %s\n", id, name, surName)
+	repos := service.Repositories{
+		Users:  users_repo.New(ctx, conn),
+		Orders: orders_repo.New(ctx, conn),
 	}
+	srvc := service.New(repos)
 
 	srv := &http.Server{
 		Addr:    cfg.Listen,
-		Handler: server.New(cfg.Listen),
+		Handler: server.New(cfg.Listen, srvc),
 	}
 
 	go func() {
